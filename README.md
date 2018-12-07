@@ -18,3 +18,5 @@ Part 2, my biggest trip was scheduling the same work item to multiple workers.
 Next biggest trip was type errors with PowerShell Lists and Arrays,
 and double-using the variable $workers by mistake.
 
+Not thrilled with the design of counting clock seconds 1 by 1.
+Could easily be more efficient by jumping time until the next workitem is done.
