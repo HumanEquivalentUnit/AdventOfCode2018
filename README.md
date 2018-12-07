@@ -1,2 +1,3 @@
 # AdventOfCode2018
-AdventOfCode.com challenges for 2018
+
+[AdventOfCode.com](http://www.adventofcode.com) challenges for 2018
