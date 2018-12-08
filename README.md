@@ -19,7 +19,7 @@ Rewrote it with a state machine and a switch,
 and then played to speed it up; ~1 second runtime tweaked down to ~220ms.
 [Day 8 Code](https://github.com/HumanEquivalentUnit/AdventOfCode2018/blob/master/2018-12-08-PowerShell-p1-and-p2.ps1)
 
-Click for a [1 min 40 second video of my undo/redo buffer from the start to the end of all of this](https://github.com/HumanEquivalentUnit/AdventOfCode2018/blob/master/2018-12-08-PowerShell-coding.mp4).
+Click for a [1 min 40 second video of my undo/redo buffer from the start to the end of all of this](https://streamable.com/8lnzs).
 
 Click for a [blog post about the details of speeding it up](https://humanequivalentunit.github.io/Speed-Tweaks-AoC-Day-8/)
 
