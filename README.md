@@ -5,6 +5,18 @@ I was trying to race for them,  preferring any code which will do the job.
 
 (They assume `data.txt` in the current working directory as the input).
 
+#### Day 8, no rank.
+Parse a binary tree out of a flat list.
+Seemed easy; tried to deal with the offsets by hand, got lost in the details.
+
+In a hurry I scrapped it and pushed the input onto a stack,
+wrote a tidy recursive function, but PS can't do tail-recursion optimisation.
+StackOverflow, and lost any chance of a scoreboard rank.
+
+Rewrite it with a state machine and a switch, 
+and then played to speed it up; ~1 second runtime tweaked down to ~220ms.
+[Day 8 Code](https://github.com/HumanEquivalentUnit/AdventOfCode2018/blob/master/2018-12-08-PowerShell-p1-and-p2.ps1)
+
 #### Day 7, leaderboard rank part 1: #524 part 2: #389
 The task was scheduling work items, graph related. Not too bad.
 I picked hashtables, and each job has a list of tasks which precede it.
@@ -22,6 +34,7 @@ and double-using the variable $workers by mistake.
 
 Not thrilled with the design of counting clock seconds 1 by 1.
 Could easily be more efficient by jumping time until the next workitem is done.
+[Day 7 Code](https://github.com/HumanEquivalentUnit/AdventOfCode2018/blob/master/2018-12-07-PowerShell-p1-and-p2.ps1)
 
 #### Days 2-6 todo
 
@@ -29,3 +42,4 @@ Could easily be more efficient by jumping time until the next workitem is done.
 Add the numbers, easy. 
 Then find when the numbers will repeat if you keep adding them.
 I used a loop. It's not the most efficient, but it is fast to implement.
+[Day 1 code](https://github.com/HumanEquivalentUnit/AdventOfCode2018/blob/master/2018-12-01-PowerShell-p1-and-p2.ps1)
