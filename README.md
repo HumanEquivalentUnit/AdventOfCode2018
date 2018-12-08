@@ -10,12 +10,18 @@ Parse a binary tree out of a flat list.
 Seemed easy; tried to deal with the offsets by hand, got lost in the details.
 
 In a hurry I scrapped it and pushed the input onto a stack,
-wrote a tidy recursive function, but PS can't do tail-recursion optimisation.
-StackOverflow, and lost any chance of a scoreboard rank.
+wrote a tidy recursive function, ~~but PS can't do tail-recursion optimisation.
+StackOverflow~~ but I later found my mistake had put it into an infinite loop.
+I think it can't to tail recursion, but can recurse plenty for this problem.
+Still, had lost any chance of a scoreboard rank.
 
-Rewrite it with a state machine and a switch, 
+Rewrote it with a state machine and a switch, 
 and then played to speed it up; ~1 second runtime tweaked down to ~220ms.
 [Day 8 Code](https://github.com/HumanEquivalentUnit/AdventOfCode2018/blob/master/2018-12-08-PowerShell-p1-and-p2.ps1)
+
+Click for a [1 min 40 second video of my undo/redo buffer from the start to the end of all of this](https://github.com/HumanEquivalentUnit/AdventOfCode2018/blob/master/2018-12-08-PowerShell-coding.mp4).
+
+Click for a [blog post about the details of speeding it up](https://humanequivalentunit.github.io/Speed-Tweaks-AoC-Day-8/)
 
 ### Day 7, leaderboard rank part 1: #524 part 2: #389
 The task was scheduling work items, graph related. Not too bad.
