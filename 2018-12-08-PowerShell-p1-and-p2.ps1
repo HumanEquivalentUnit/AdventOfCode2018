@@ -2,7 +2,7 @@ $lines     = Get-Content .\data.txt -raw
 $inputNums = [int[]]($lines.Split(" `r`n"))
 $i         = 0
 $stack     = [System.Collections.Generic.Stack[PSObject]]::new(20kb)
-
+$stack.Push(@{childNodes=[System.Collections.Generic.List[psobject]]::new()}) #root node holder
 $numRemainingChildNodes = 1
 
 $metaSum = 0      # quick hack global running sum of metadata values, to avoid walking the result tree.
@@ -37,15 +37,10 @@ while ($i -lt $inputNums.Count)
         }
         # End Part 2
 
-
-        # empty stack means $current is the finished root node and we're done.
-        if ($stack.count -gt 0)
-        {
-            $parent = $stack.Peek()
-            $parent.childNodes.Add($currentNode)
+        $parent = $stack.Peek()
+        $parent.childNodes.Add($currentNode)
                 
-            $numRemainingChildNodes = $parent.childNodes.Count - $parent.numChildNodes
-        }
+        $numRemainingChildNodes = $parent.childNodes.Count - $parent.numChildNodes
     }
     else
     {
