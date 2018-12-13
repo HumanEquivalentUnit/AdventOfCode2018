@@ -73,7 +73,20 @@ Not thrilled with the design of counting clock seconds 1 by 1.
 Could easily be more efficient by jumping time until the next workitem is done.
 [Day 7 Code](https://github.com/HumanEquivalentUnit/AdventOfCode2018/blob/master/2018-12-07-PowerShell-p1-and-p2.ps1)
 
-### Days 3-6 todo
+### Days 4-6 todo
+
+### Day 3, leaderboard part 1: #133, part 2: unranked.
+Elves claiming squares of fabric to make Santa's suit, 
+but their claims may overlap. How many squares are claimed multiple times,
+and which Elf's claim overlaps no others.
+
+Regex to load the data, loops over it.
+Slowed by trying to use PowerShell arrays and avoid automatic enumeration
+down the pipeline, then a change of tack to a proper `[int[,]]` 2D array.
+
+Part 2 was a rewrite with hashtables tracking lists of claims for each cell.
+
+[Day 3 code](https://github.com/HumanEquivalentUnit/AdventOfCode2018/blob/master/2018-12-03-PowerShell-p1-and-p2.ps1)
 
 ### Day 2, leaderboard part 1: #78, part 2: #133
 Box identifiers numbers, how many have the any letter twice, then three times.
