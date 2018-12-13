@@ -73,7 +73,20 @@ Not thrilled with the design of counting clock seconds 1 by 1.
 Could easily be more efficient by jumping time until the next workitem is done.
 [Day 7 Code](https://github.com/HumanEquivalentUnit/AdventOfCode2018/blob/master/2018-12-07-PowerShell-p1-and-p2.ps1)
 
-### Days 5-6 todo
+### Day 6 - missed at the time. Still todo.
+
+### Day 5, leaderboard part 1: #509, part 2: #499
+The polymer-reacter to reduce a large input string.
+
+A regex replace loop, but tripped over leaving the newlines on the end of the input.
+
+Part 2 a loop over the 26 different options when removing each alphabet letter.
+I didn't spot that you can use the ~10k characters result of part 1,
+instead of the ~50k characters original input here to speed things up.
+(It ran in ~18 seconds, so I didn't need to push for it to run faster).
+
+[Day 5 code](https://github.com/HumanEquivalentUnit/AdventOfCode2018/blob/master/2018-12-05-PowerShell-p1-and-p2.ps1)
+
 
 ### Day 4, leaderboard part 1: #37, part 2: #61
 Watching the times guards sleep and wake, to find the best time to try getting past.
