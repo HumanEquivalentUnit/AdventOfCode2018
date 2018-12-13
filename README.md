@@ -73,7 +73,19 @@ Not thrilled with the design of counting clock seconds 1 by 1.
 Could easily be more efficient by jumping time until the next workitem is done.
 [Day 7 Code](https://github.com/HumanEquivalentUnit/AdventOfCode2018/blob/master/2018-12-07-PowerShell-p1-and-p2.ps1)
 
-### Days 4-6 todo
+### Days 5-6 todo
+
+### Day 4, leaderboard part 1: #37, part 2: #61
+Watching the times guards sleep and wake, to find the best time to try getting past.
+
+Missed a big trick on sorting the input quickly,
+instead regexing out the date and converting to `[datetime]` 
+but it worked out OK because I used that later anyway.
+
+Hurrying at the time, I did some by-eye / interactive work to get the answers, 
+code now added to do that bit.
+
+[Day 4 code](https://github.com/HumanEquivalentUnit/AdventOfCode2018/blob/master/2018-12-04-PowerShell-p1-and-p2.ps1)
 
 ### Day 3, leaderboard part 1: #133, part 2: unranked.
 Elves claiming squares of fabric to make Santa's suit, 
