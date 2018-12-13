@@ -19,9 +19,16 @@ Now runs in ~22 minutes.
 
 [Day 11 Code](https://github.com/HumanEquivalentUnit/AdventOfCode2018/blob/master/2018-12-11-PowerShell-p1-and-p2.ps1)
 
-### Day 10, todo
+### Day 10
+Moving points in the sky, which converging to show some text.
+I saw the trigger of "when the bounding box shrinks to below a threshhold", 
+but didn't go far enough to identify when it was smallest. 
+Spent too much time rendering to image files, instead of console output.
+Part 1 Rank #217, Part 2 rank #385
 
-### Day 9, todo
+[Day 10 Code](https://github.com/HumanEquivalentUnit/AdventOfCode2018/blob/master/2018-12-10-PowerShell-p1-and-p2.ps1)
+
+### Day 9, leaderboard rank part 1: #432, part 2: unranked
 Elf-marble game, they place marbles on a circular buffer.
 I saw it was a linked-list style problem, 
 but used arrays to do part 1 to get a quicker answer; rank #432,
@@ -66,7 +73,14 @@ Not thrilled with the design of counting clock seconds 1 by 1.
 Could easily be more efficient by jumping time until the next workitem is done.
 [Day 7 Code](https://github.com/HumanEquivalentUnit/AdventOfCode2018/blob/master/2018-12-07-PowerShell-p1-and-p2.ps1)
 
-### Days 2-6 todo
+### Days 3-6 todo
+
+### Day 2, leaderboard part 1: #78, part 2: #133
+Box identifiers numbers, how many have the any letter twice, then three times.
+Then identify the two that differ by a single letter.
+Didn't directly go to Edit distance, just loops and grouping
+
+[Day 2 code](https://github.com/HumanEquivalentUnit/AdventOfCode2018/blob/master/2018-12-02-PowerShell-p1-and-p2.ps1)
 
 ### Day 1, leaderboard rank part 1: #57 part 2: #180
 Add the numbers, easy. 
