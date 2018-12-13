@@ -5,6 +5,30 @@ I was trying to race for them,  preferring any code which will do the job.
 
 (They assume `data.txt` in the current working directory as the input).
 
+### Day 11
+300x300 grid of power cells, find the 3x3 sub-grid where the cells sum to the highest value.
+(At this point, no longer competing; I can't code these fast enough to be competitive).
+Part 1, a naive nested loops, which was fast enough. 
+Predicting some exponential slowdown in part 2 but no idea what to expect.
+It asks for checking all sub-grid sizes 1x1 through 300x300
+(some cells have negative values so it's not automatically the largest size).
+Naive search ran for 10+ hours while I was at work, 
+until I came up with a way to roll-up changes from previous runs into a second grid.
+Now runs in ~22 minutes. 
+`[system.linq.enumerable]::Sum([int[]]$numsx)` approx. as fast as a `foreach(){+=}` summing loop.
+
+[Day 11 Code](https://github.com/HumanEquivalentUnit/AdventOfCode2018/blob/master/2018-12-11-PowerShell-p1-and-p2.ps1)
+
+### Day 10, todo
+
+### Day 9, todo
+Elf-marble game, they place marbles on a circular buffer.
+I saw it was a linked-list style problem, 
+but used arrays to do part 1 to get a quicker answer; rank #432,
+but had to rewrite with linked lists - and they have quite a bit of overhead code by comparison.
+
+[Day 9 code](https://github.com/HumanEquivalentUnit/AdventOfCode2018/blob/master/2018-12-09-PowerShell-p1-and-p2.ps1)
+
 ### Day 8, no rank.
 Parse a binary tree out of a flat list.
 Seemed easy; tried to deal with the offsets by hand, got lost in the details.
