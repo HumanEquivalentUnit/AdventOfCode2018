@@ -5,6 +5,17 @@ I was trying to race for them,  preferring any code which will do the job.
 
 (They assume `data.txt` in the current working directory as the input).
 
+### Day 16, leaderboard rank part 1: #62, part 2: 50
+Identify op-codes for a small computer instruction set, 
+and execute a program.
+Surprisingly few problems with this.
+Solved the "now match the op codes" part in Notepad.
+Had more bugs and more trouble coding that and mrging p1 and p2 neatly, after answering.
+
+[Day 16 code](https://github.com/HumanEquivalentUnit/AdventOfCode2018/blob/master/2018-12-16-PowerShell-p1-and-p2.ps1)
+
+### Day 12 - 15 todo
+
 ### Day 11
 300x300 grid of power cells, find the 3x3 sub-grid where the cells sum to the highest value.
 (At this point, no longer competing; I can't code these fast enough to be competitive).
