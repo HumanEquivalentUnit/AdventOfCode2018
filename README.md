@@ -16,6 +16,8 @@ Deleted most of the cycle code, printed it and looked by eye while waiting for t
 
 [Day 18 code](https://github.com/HumanEquivalentUnit/AdventOfCode2018/blob/master/2018-12-18-PowerShell-p1-and-p2.ps1)
 
+### Day 17, todo
+
 ### Day 16, leaderboard rank part 1: #62, part 2: #50
 Identify op-codes for a small computer instruction set, 
 and execute a program.
