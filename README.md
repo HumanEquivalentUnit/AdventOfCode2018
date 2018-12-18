@@ -5,7 +5,18 @@ I was trying to race for them,  preferring any code which will do the job.
 
 (They assume `data.txt` in the current working directory as the input).
 
-### Day 16, leaderboard rank part 1: #62, part 2: 50
+### Day 18, leaderboard rank part 1: #587, part 2: #857
+"Conway's game of life" of trees in a forest. 
+Should be a fairly simple x,y grid with a loop over it, but it wasn't smooth sailing.
+Part 1: one major bug, one oversight, and one red herring bug. Hit the 5 minute delay.
+Part 2: I was expecting it to settle into a cycle, 
+but it took a long time to get the code and offset right,
+and hit the 5 minute delay twice on top of that.
+Deleted most of the cycle code, printed it and looked by eye while waiting for the delay to expire.
+
+[Day 18 code](https://github.com/HumanEquivalentUnit/AdventOfCode2018/blob/master/2018-12-18-PowerShell-p1-and-p2.ps1)
+
+### Day 16, leaderboard rank part 1: #62, part 2: #50
 Identify op-codes for a small computer instruction set, 
 and execute a program.
 Surprisingly few problems with this.
