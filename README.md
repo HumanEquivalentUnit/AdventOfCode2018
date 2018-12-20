@@ -5,6 +5,16 @@ I was trying to race for them,  preferring any code which will do the job.
 
 (They assume `data.txt` in the current working directory as the input).
 
+### Day 20, leaderboard rank part 1: #208, part 2: #182
+Walk a regex of directions, build a graph of connected rooms.
+Pretty good but there's no easy way to use a simple `($x, $y)` pair as a hashtable key.
+Working around that cost time and runtime, 30 seconds per run.
+Rewrote using a more complex nested dictionaries `[$y][$x]` which dropped it to <700ms runtime.
+
+[Day 20 code](https://github.com/HumanEquivalentUnit/AdventOfCode2018/blob/master/2018-12-20-PowerShell-p1-and-p2.ps1)
+
+### Day 19, done, todo writing
+
 ### Day 18, leaderboard rank part 1: #587, part 2: #857
 "Conway's game of life" of trees in a forest. 
 Should be a fairly simple x,y grid with a loop over it, but it wasn't smooth sailing.
