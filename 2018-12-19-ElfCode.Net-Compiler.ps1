@@ -1,20 +1,20 @@
 # README - how to use
 #
-# 1. Edit $registers line below, for how many registers you want, and what their starting state should be.
-# 2. Edit the $ElfCodeInput below, with your code, or uncomment the Get-Content line and read it from a file.
-# 3. Set $DEBUGPrintRegistersEveryNLoops = N if you want progress printed out every N instructions (slower)
+# 1. Edit $registers line below -> how many registers, and their start values.
+# 2. Edit $ElfCodeInput below -> paste your code, or uncomment the Get-Content line and read it from a file.
+# 3. Set $DEBUGPrintRegistersEveryNLoops = N if you want progress printed out every N instructions (slower).
 
 # Optionally set this, to see the verbose log messages during 
 # $VerbosePreference = 'Continue'
 
 using namespace System.Reflection.Emit
-Remove-Variable result -ea SilentlyContinue # so it won't accidentally show results from a previous run.
+Remove-Variable -Name result -ErrorAction SilentlyContinue
+Remove-Variable -Name cilLocalVarResultArray, int64ToStringHelperVar, strJoinHelperVar -Scope Script -ErrorAction SilentlyContinue
 
 # configure initial values for each CPU register, 
-[int[]]$registers = @(0,0,0,0,0,0)
+[int64[]]$registers = @(0,0,0,0,0,0)
 
-
-$DEBUGPrintRegistersEveryNLoops = 0  # dump every N instructions; 0 = don't include debug code
+[int64]$DEBUGPrintRegistersEveryNLoops = 0 #50000000 # dump every N instructions; 0 = don't include debug code
 
 
 #$ElfCodeInput = Get-Content .\data.txt
@@ -102,22 +102,24 @@ $parsedLines = [System.Collections.Generic.List[psobject]]::new()
 $inputLineCounter = 1
 foreach ($line in $ElfCodeInput)
 {
+    $line = $line.Trim()
+
     if ([string]::IsNullOrWhiteSpace($line))
     {
         continue
     }
     elseif ($line -match '^#ip (\d+)' -and $ipRegisterNum -eq $null)
     {
-        $ipRegisterNum = [int]$matches[1]
+        $ipRegisterNum = [int64]$matches[1]
     }
     elseif ($line -match '^#ip (\d+)' -and $ipRegisterNum -ne $null)
     {
         Write-Error -Message "Line $inputLineCounter, '$line' is trying to redefine #ip, that's not supported"
     }
-    elseif ($line -match '^(\w+) (\d+) (\d+) (\d+)$')
+    elseif ($line -match '^(\w+) (-?\d+) (-?\d+) (-?\d+)$')
     {
         $opcode = $matches[1]
-        $ABC = [int[]]$matches[2,3,4]
+        [int64[]]$ABC = $matches[2,3,4]
         $parsedLines.Add(($opcode, $ABC))
     }
     else
@@ -134,32 +136,84 @@ Remove-Variable line, opcode, ABC -ErrorAction SilentlyContinue
 # CodeGen Helper Functions
 ##
 
-function Add-ILRegistersToArrayOnStack
+function Add-IL-RegistersToArrayOnStack
 {
     Write-Verbose -Message 'ILGen: Registers -> Array'
-    # new array sized to hold all the registers.
-    if (-not $cilLocalVarResultArray) { $cilLocalVarResultArray = $IL.DeclareLocal([int32[]]) }
+    # array sized to hold all the registers.
+    if (-not $script:cilLocalVarResultArray) { $script:cilLocalVarResultArray = $IL.DeclareLocal([int64[]]) }
     $IL.Emit([OpCodes]::Ldc_I4, $registers.Count)
-    $IL.Emit([OpCodes]::Newarr, [int32])
-    $IL.Emit([OpCodes]::Stloc, $cilLocalVarResultArray)
+    $IL.Emit([OpCodes]::Newarr, [int64])
+    $IL.Emit([OpCodes]::Stloc, $script:cilLocalVarResultArray)
 
     # register values (1 local var each) -> array contents.
     for ($i = 0; $i -lt $cilRegisterLocals.Count; $i++)
     {
-        $IL.Emit([OpCodes]::Ldloc, $cilLocalVarResultArray)
+        $IL.Emit([OpCodes]::Ldloc, $script:cilLocalVarResultArray)
         $IL.Emit([OpCodes]::Ldc_I4, $i)
-        $IL.Emit([OpCodes]::Ldloc, $i)
-        $IL.Emit([OpCodes]::Stelem, [int32])
+        $IL.Emit([OpCodes]::Ldloc, $cilRegisterLocals[$i])
+        $IL.Emit([OpCodes]::Stelem, [int64])
     }
 
-    # array -> stack, and return
-    $IL.Emit([OpCodes]::Ldloc, $cilLocalVarResultArray)
+    # array -> stack
+    $IL.Emit([OpCodes]::Ldloc, $script:cilLocalVarResultArray)
+}
+
+function Add-ILPrint-Registers {
+    
+    # register values (1 local var each) -> array contents.
+    $consoleWriteLineString = [console].GetDeclaredMethods('WriteLine').where{
+                                        $p = $_.GetParameters()
+                                        $p.Count -eq 1 -and $p.ParameterType -eq [string]
+                                        }[0]
+  
+    $stringConcatStrStrStr    = [string].GetDeclaredMethods('Concat').where{ 
+                                        $p = $_.GetParameters()
+                                        $p.Count -eq 3 -and $p[0].ParameterType -eq [string] -and $p[1].ParameterType -eq [string] -and
+                                                            $p[2].ParameterType -eq [string]
+                                        }[0]
+
+    $stringConcatStrStrStrStr = [string].GetDeclaredMethods('Concat').where{ 
+                                        $p = $_.GetParameters()
+                                        $p.Count -eq 4 -and $p[0].ParameterType -eq [string] -and $p[1].ParameterType -eq [string] -and
+                                                            $p[2].ParameterType -eq [string] -and $p[3].ParameterType -eq [string]
+                                        }[0]
+
+    $stringJoinInt64        = [string].GetDeclaredMethods('Join').where{$_.IsGenericMethod}[0].MakeGenericMethod([int64])
+    $int64ToString          = [int64].GetDeclaredMethods('ToString').Where{$_.getparameters().Count -eq 0}[0]
+    
+    if (-not $script:int64ToStringHelperVar) { $script:int64ToStringHelperVar = $IL.DeclareLocal([int64]) }
+    
+    $IL.Emit([OpCodes]::Ldstr, 'Counter: ')
+    
+    $IL.Emit([OpCodes]::Ldloc, $loopCounterLocal)
+    $IL.Emit([OpCodes]::Stloc, $int64ToStringHelperVar)
+    $IL.Emit([OpCodes]::Ldloca, $int64ToStringHelperVar)
+    $IL.EmitCall([opcodes]::Call, $int64ToString, $null)
+    
+    $IL.Emit([OpCodes]::Ldstr, '      Instruction Pointer: ')
+    
+    $IL.Emit([OpCodes]::Ldloc, $ipLocal)
+    $IL.Emit([OpCodes]::Stloc, $int64ToStringHelperVar)
+    $IL.Emit([OpCodes]::Ldloca, $int64ToStringHelperVar)
+    $IL.EmitCall([OpCodes]::Call, $int64ToString, $null)
+    
+    $IL.EmitCall([OpCodes]::Call, $stringConcatStrStrStrStr, $null)
+    
+    $IL.Emit([OpCodes]::Ldstr, "`nRegisters: ")
+    
+    $IL.Emit([OpCodes]::Ldstr, '; ')
+    Add-IL-RegistersToArrayOnStack
+    $IL.EmitCall([opcodes]::Call, $stringJoinInt64, $null)
+
+    $IL.EmitCall([OpCodes]::Call, $stringConcatStrStrStr, $null)
+    $IL.EmitCall([OpCodes]::Call, $consoleWriteLineString, $null)
+
 }
 
 # Increment the debug counter
 # do a remainder check
 # if it passes, print the registers
-function Add-ILDebugPrint {
+function Add-IL-DebugPrint {
     Write-Verbose -Message 'ILGen: if (loopCounter++ % debugCount) { print registers }'
     # loopCounter++
     $IL.Emit([OpCodes]::Ldloc, $loopCounterLocal)
@@ -169,60 +223,17 @@ function Add-ILDebugPrint {
     
     # $loopCounter % cycles
     $IL.Emit([OpCodes]::Ldloc, $loopCounterLocal)
-    $IL.Emit([OpCodes]::Ldc_I8, [int64]$DEBUGPrintRegistersEveryNLoops)
+    $IL.Emit([OpCodes]::Ldc_I8, $DEBUGPrintRegistersEveryNLoops)
     $IL.Emit([OpCodes]::Rem)
         
     # if ($that -gt 0) { skip the printing }
-    #if (-not $script:skipPrintLabel) { $script:skipPrintLabel = $IL.DefineLabel() }
     $skipPrintLabel = $IL.DefineLabel()
     
     $IL.Emit([OpCodes]::Ldc_I8, 0L)
     $IL.Emit([OpCodes]::Bgt, $skipPrintLabel)
+
+    Add-ILPrint-Registers
     
-    # register values (1 local var each) -> array contents.
-    $consoleWriteInt32  = [console].GetDeclaredMethods('Write').where{$_.GetParameters()[0].ParameterType -eq [int32]}[0]
-    $consoleWriteInt64  = [console].GetDeclaredMethods('Write').where{$_.GetParameters()[0].ParameterType -eq [int64]}[0]
-    $consoleWriteString = [console].GetDeclaredMethods('Write').where{$p = $_.GetParameters(); $p.Count -eq 1 -and $p.ParameterType -eq [string]}[0]
-    $consoleWriteLineString = [console].GetDeclaredMethods('WriteLine').where{$p = $_.GetParameters(); $p.Count -eq 1 -and $p.ParameterType -eq [string]}[0]
-
-    $IL.Emit([OpCodes]::Ldstr, 'Instruction Pointer: ')
-    $IL.EmitCall([OpCodes]::Call, $consoleWriteString, $null)
-    
-    $IL.Emit([OpCodes]::Ldloc, $ipLocal)
-    $IL.EmitCall([OpCodes]::Call, $consoleWriteInt32, $null)
-
-    $IL.Emit([OpCodes]::Ldstr, '     Counter: ')
-    $IL.EmitCall([OpCodes]::Call, $consoleWriteString, $null)
-    
-    $IL.Emit([OpCodes]::Ldloc, $loopCounterLocal)
-    $IL.EmitCall([OpCodes]::Call, $consoleWriteInt64, $null)
-
-    $IL.Emit([OpCodes]::Ldstr, "")
-    $IL.EmitCall([OpCodes]::Call, $consoleWriteLineString, $null)
-
-    $IL.Emit([OpCodes]::Ldstr, 'Registers: ')
-    $IL.EmitCall([OpCodes]::Call, $consoleWriteString, $null)
-    
-    for ($i = 0; $i -lt $cilRegisterLocals.Count; $i++)
-    {
-        $IL.Emit([OpCodes]::Ldloc, $i)
-        $IL.EmitCall([OpCodes]::Call, $consoleWriteInt32, $null)
-        $IL.Emit([OpCodes]::Ldstr, ' ')
-        $IL.EmitCall([OpCodes]::Call, $consoleWriteString, $null)
-    }
-
-    $IL.Emit([OpCodes]::Ldstr, "")
-    $IL.EmitCall([OpCodes]::Call, $consoleWriteLineString, $null)
-
-    # join array to string with [system.string]::Join(sep, generic int[]) overload
-    # I haven't got this to work yet
-    #$IL.Emit([OpCodes]::Ldstr, '; ')
-    #Add-ILRegistersToArrayOnStack
-    #$IL.EmitCall([opcodes]::Call, [string].GetDeclaredMethods('Join').where{$_.IsGenericMethod}[0].MakeGenericMethod([int32[]]), $null)
-    ##if (-not $script:debugStringLocal) { $script:debugStringLocal = $IL.DeclareLocal([string]) }
-    ##$IL.Emit([OpCodes]::Stloc, $debugStringLocal)
-    ##$IL.Emit([OpCodes]::Ldloc, $debugStringLocal)
-    #$IL.EmitCall([OpCodes]::Call, $consoleWriteLineString, $null)
     $IL.MarkLabel($skipPrintLabel)
 }
 
@@ -238,39 +249,31 @@ function Add-ILDebugPrint {
 #  2. Inline opcodes to setup registers, avoids having to load them from a parameter.
 ##
 
-    $methodInfo = new-object Reflection.Emit.DynamicMethod -ArgumentList @('ElfCode', [int32[]], @())
+    $methodInfo = new-object Reflection.Emit.DynamicMethod -ArgumentList @('ElfCode', $null, @())
     $IL = $methodInfo.GetILGenerator()
-
+      
     # Make a local variable for each register and intialize them,
     # with values from the $registers array here.
-    $cilRegisterLocals = for ($i = 0; $i -lt $registers.Count; $i++)
-    {
-        $IL.DeclareLocal([int32])
-        $IL.Emit([OpCodes]::Ldc_I4, $registers[$i])
-        $IL.Emit([OpCodes]::Stloc, $i)
-    }
-
-    # Store the count of registers,
-    # so we can make an appropriate array to return them all
-    $regCountLocal = $IL.DeclareLocal([int32])
-    $IL.Emit([OpCodes]::Ldc_I4, $registers.Count)
-    $IL.Emit([OpCodes]::Stloc, $regCountLocal)
+   $cilRegisterLocals = for ($i = 0; $i -lt $registers.Count; $i++)
+   {
+       $cilReg = $IL.DeclareLocal([int64])
+       $IL.Emit([OpCodes]::Ldc_I8, [int64]$registers[$i])
+       $IL.Emit([OpCodes]::Stloc, $cilReg)
+       $cilReg
+   }
 
 
-    # Instruction Pointer local var sits after the register vars
-    $ipLocal = $IL.DeclareLocal([int32])
-    $IL.Emit([OpCodes]::Ldc_I4_0)
-    $IL.Emit([OpCodes]::Stloc, $ipLocal)
+   # Instruction Pointer local var sits after the register vars
+   $ipLocal = $IL.DeclareLocal([int64])
+   $IL.Emit([OpCodes]::Ldc_I8, 0L)
+   $IL.Emit([OpCodes]::Stloc, $ipLocal)
 
 
-    # If we want a debug print, setup a counter to track when
-    if ($DEBUGPrintRegistersEveryNLoops -gt 0)
-    {
-        $loopCounterLocal = $IL.DeclareLocal([int64])
-        $IL.Emit([OpCodes]::Ldc_I8, 0L)
-        $IL.Emit([OpCodes]::Stloc, $loopCounterLocal)
-    }
-
+   # only used in debug code
+   $loopCounterLocal = $IL.DeclareLocal([int64])
+   $IL.Emit([OpCodes]::Ldc_I8, 0L)
+   $IL.Emit([OpCodes]::Stloc, $loopCounterLocal)
+  
 ##
 # Boilerplate end - ElfCode machine initialised.
 ##
@@ -299,25 +302,30 @@ $IL.MarkLabel($beginLabel)
 
 # JumpTable - jump to the line for the instruction pointer
 $IL.Emit([OpCodes]::Ldloc, $ipLocal)
+$IL.Emit([OpCodes]::Conv_I4) #switch needs int32 here (?)
 $IL.Emit([OpCodes]::Switch, $lineJumpLabels)
 $defaultCaseLabel = $IL.DefineLabel()
 $IL.MarkLabel($defaultCaseLabel)
 $IL.Emit([OpCodes]::Br, $haltLabel)
 
 # CIL generation for each line of input, inside a CIL switch jump table
-$i = 0
-$inputLineCounter = 1
+[int64]$i = 0
+[int64]$inputLineCounter = 1
 foreach ($line in $parsedLines)
 {
     Write-Verbose -Message "Generating IL for line $inputLineCounter : $($line[0]) $($line[1] -join ' ')"
-    $opcode, $ABC = $line
+    [string]$opcode, [int64[]]$ABC = $line
     
     # output label so IP can jump to this instruction
     $IL.MarkLabel($lineJumpLabels[$i])
 
     # Instruction Pointer -> Register
-    $IL.Emit([OpCodes]::Ldloc, $ipLocal)
-    $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ipRegisterNum])
+    # NB. small optimization - if none of the op codes read or write to it, don't bother loading it.
+    if ($ABC -eq $ipRegisterNum)
+    {
+        $IL.Emit([OpCodes]::Ldloc, $ipLocal)
+        $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ipRegisterNum])
+    }
 
     switch ($opcode)
     {
@@ -331,7 +339,7 @@ foreach ($line in $parsedLines)
         'addi' { #addi (add immediate) stores into register C the result of adding register A and value B.
             Write-Verbose -Message "addi"
             $IL.Emit([OpCodes]::Ldloc, $cilRegisterLocals[$ABC[$A]])
-            $IL.Emit([OpCodes]::Ldc_I4, $ABC[$B])
+            $IL.Emit([OpCodes]::Ldc_I8, [int64]$ABC[$B])
             $IL.Emit([OpCodes]::Add)
             $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
         }
@@ -345,7 +353,7 @@ foreach ($line in $parsedLines)
         'muli' { # muli (multiply immediate) stores into register C the result of multiplying register A and value B.
             Write-Verbose -Message "muli"
             $IL.Emit([OpCodes]::Ldloc, $cilRegisterLocals[$ABC[$A]])
-            $IL.Emit([OpCodes]::Ldc_I4, $ABC[$B])
+            $IL.Emit([OpCodes]::Ldc_I8, [int64]$ABC[$B])
             $IL.Emit([OpCodes]::Mul)
             $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
         }
@@ -359,7 +367,7 @@ foreach ($line in $parsedLines)
         'bani' { # bani (bitwise AND immediate) stores into register C the result of the bitwise AND of register A and value B.
             Write-Verbose -Message "bani"
             $IL.Emit([OpCodes]::Ldloc, $cilRegisterLocals[$ABC[$A]])
-            $IL.Emit([OpCodes]::Ldc_I4, $ABC[$B])
+            $IL.Emit([OpCodes]::Ldc_I8, [int64]$ABC[$B])
             $IL.Emit([OpCodes]::And)
             $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
         }
@@ -373,7 +381,7 @@ foreach ($line in $parsedLines)
         'bori' { # bori (bitwise OR immediate) stores into register C the result of the bitwise OR of register A and value B.
             Write-Verbose -Message "bori"
             $IL.Emit([OpCodes]::Ldloc, $cilRegisterLocals[$ABC[$A]])
-            $IL.Emit([OpCodes]::Ldc_I4, $ABC[$B])
+            $IL.Emit([OpCodes]::Ldc_I8, [int64]$ABC[$B])
             $IL.Emit([OpCodes]::Or)
             $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
         }
@@ -384,93 +392,106 @@ foreach ($line in $parsedLines)
         }
         'seti' { # seti (set immediate) stores value A into register C. (Input B is ignored.)
             Write-Verbose -Message "seti"
-            $IL.Emit([OpCodes]::Ldc_I4, $ABC[$A])
+            $IL.Emit([OpCodes]::Ldc_I8, [int64]$ABC[$A])
             $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
         }
         'gtir' { # gtir (greater-than immediate/register) sets register C to 1 if value A is greater than register B. Otherwise, register C is set to 0.
             Write-Verbose -Message "gtir"
             $gtLabel = $IL.DefineLabel()
-            $IL.Emit([OpCodes]::Ldc_I4, $ABC[$A])
+            $IL.Emit([OpCodes]::Ldc_I8, 1L)
+            $IL.Emit([OpCodes]::Ldc_I8, [int64]$ABC[$A])
             $IL.Emit([OpCodes]::Ldloc, $cilRegisterLocals[$ABC[$B]])
-            $IL.Emit([OpCodes]::Ldc_I4_1)
-            $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
+            #$IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
             $IL.Emit([OpCodes]::Bgt, $gtLabel)
-            $IL.Emit([OpCodes]::Ldc_I4_0)
-            $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
+            $IL.Emit([OpCodes]::Pop)
+            $IL.Emit([OpCodes]::Ldc_I8, 0L)
             $IL.MarkLabel($gtLabel)
+            $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
         }
         'gtri' { # gtri (greater-than register/immediate) sets register C to 1 if register A is greater than value B. Otherwise, register C is set to 0.
             Write-Verbose -Message "gtri"
             $gtLabel = $IL.DefineLabel()
+            $IL.Emit([OpCodes]::Ldc_I8, 1L)
             $IL.Emit([OpCodes]::Ldloc, $cilRegisterLocals[$ABC[$A]])
-            $IL.Emit([OpCodes]::Ldc_I4, $ABC[$B])
-            $IL.Emit([OpCodes]::Ldc_I4_1)
-            $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
+            $IL.Emit([OpCodes]::Ldc_I8, [int64]$ABC[$B])
+            #$IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
             $IL.Emit([OpCodes]::Bgt, $gtLabel)
-            $IL.Emit([OpCodes]::Ldc_I4_0)
-            $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
+            $IL.Emit([OpCodes]::Pop)
+            $IL.Emit([OpCodes]::Ldc_I8, 0L)
             $IL.MarkLabel($gtLabel)
+            $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
         }
         'gtrr' { # gtrr (greater-than register/register) sets register C to 1 if register A is greater than register B. Otherwise, register C is set to 0.
             Write-Verbose -Message "gtrr"
             $gtLabel = $IL.DefineLabel()
+            $IL.Emit([OpCodes]::Ldc_I8, 1L)
             $IL.Emit([OpCodes]::Ldloc, $cilRegisterLocals[$ABC[$A]])
             $IL.Emit([OpCodes]::Ldloc, $cilRegisterLocals[$ABC[$B]])
-            $IL.Emit([OpCodes]::Ldc_I4_1)
-            $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
+            #$IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
             $IL.Emit([OpCodes]::Bgt, $gtLabel)
-            $IL.Emit([OpCodes]::Ldc_I4_0)
-            $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
+            $IL.Emit([OpCodes]::Pop)
+            $IL.Emit([OpCodes]::Ldc_I8, 0L)
             $IL.MarkLabel($gtLabel)
+            $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
         }
         'eqir' { # eqir (equal immediate/register) sets register C to 1 if value A is equal to register B. Otherwise, register C is set to 0.
             Write-Verbose -Message "eqir"
             $eqLabel = $IL.DefineLabel()
-            $IL.Emit([OpCodes]::Ldc_I4, $ABC[$A])
+            $IL.Emit([OpCodes]::Ldc_I8, 1L)
+            $IL.Emit([OpCodes]::Ldc_I8, [int64]$ABC[$A])
             $IL.Emit([OpCodes]::Ldloc, $cilRegisterLocals[$ABC[$B]])
-            $IL.Emit([OpCodes]::Ldc_I4_1)
-            $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
+            #$IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
             $IL.Emit([OpCodes]::Beq, $eqLabel)
-            $IL.Emit([OpCodes]::Ldc_I4_0)
-            $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
+            $IL.Emit([OpCodes]::Pop)
+            $IL.Emit([OpCodes]::Ldc_I8, 0L)
             $IL.MarkLabel($eqLabel)
+            $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
         }
         'eqri' { # eqri (equal register/immediate) sets register C to 1 if register A is equal to value B. Otherwise, register C is set to 0.
             Write-Verbose -Message "eqri"
             $eqLabel = $IL.DefineLabel()
+            $IL.Emit([OpCodes]::Ldc_I8, 1L)
             $IL.Emit([OpCodes]::Ldloc, $cilRegisterLocals[$ABC[$A]])
-            $IL.Emit([OpCodes]::Ldc_I4, $ABC[$B])
-            $IL.Emit([OpCodes]::Ldc_I4_1)
-            $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
+            $IL.Emit([OpCodes]::Ldc_I8, [int64]$ABC[$B])
+            #$IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
             $IL.Emit([OpCodes]::Beq, $eqLabel)
-            $IL.Emit([OpCodes]::Ldc_I4_0)
-            $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
+            $IL.Emit([OpCodes]::Pop)
+            $IL.Emit([OpCodes]::Ldc_I8, 0L)
             $IL.MarkLabel($eqLabel)
+            $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
         }
         'eqrr' { # eqrr (equal register/register) sets register C to 1 if register A is equal to register B. Otherwise, register C is set to 0.
             Write-Verbose -Message "eqri"
             $eqLabel = $IL.DefineLabel()
+            $IL.Emit([OpCodes]::Ldc_I8, 1L)
             $IL.Emit([OpCodes]::Ldloc, $cilRegisterLocals[$ABC[$A]])
             $IL.Emit([OpCodes]::Ldloc, $cilRegisterLocals[$ABC[$B]])
-            $IL.Emit([OpCodes]::Ldc_I4_1)
-            $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
+            #$IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
             $IL.Emit([OpCodes]::Beq, $eqLabel)
-            $IL.Emit([OpCodes]::Ldc_I4_0)
-            $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
+            $IL.Emit([OpCodes]::Pop)
+            $IL.Emit([OpCodes]::Ldc_I8, 0L)
             $IL.MarkLabel($eqLabel)
+            $IL.Emit([OpCodes]::Stloc, $cilRegisterLocals[$ABC[$C]])
         }
     }
 
     # IP bound register -> stack -> + 1 -> Instruction Pointer local var
-    $IL.Emit([OpCodes]::Ldloc, $cilRegisterLocals[$ipRegisterNum])
-    $IL.Emit([OpCodes]::Ldc_I4_1)
+    if ($ABC -eq $ipRegisterNum)
+    {
+        $IL.Emit([OpCodes]::Ldloc, $cilRegisterLocals[$ipRegisterNum])
+    }
+    else
+    {
+        $IL.Emit([OpCodes]::Ldloc, $iplocal)
+    }
+    $IL.Emit([OpCodes]::Ldc_I8, 1L)
     $IL.Emit([OpCodes]::Add)
     $IL.Emit([OpCodes]::Stloc, $ipLocal)
 
     
     if ($DEBUGPrintRegistersEveryNLoops -gt 0)
     {
-        Add-ILDebugPrint
+        Add-IL-DebugPrint
     }
 
     $i++
@@ -486,7 +507,7 @@ foreach ($line in $parsedLines)
 # End CodeGen - return register values to the caller.
 ##
     $IL.MarkLabel($haltLabel)
-    Add-ILRegistersToArrayOnStack
+    Add-ILPrint-Registers
     $IL.Emit([OpCodes]::Ret)
 
 ##
@@ -495,9 +516,8 @@ foreach ($line in $parsedLines)
 
 
 # Convert DyanmicMethod -> Delegate, and call it.
-$ElfCode = $methodInfo.CreateDelegate([System.Func[[int32[]]]])
+$ElfCode = $methodInfo.CreateDelegate([System.Action])
 
 Write-Verbose -Message 'Attempting to run code:'
 write-host "Before: $($registers -join ', ')"
-$result = $ElfCode.Invoke()
-write-host "Result: $($result -join ', ')"
+$ElfCode.Invoke()
