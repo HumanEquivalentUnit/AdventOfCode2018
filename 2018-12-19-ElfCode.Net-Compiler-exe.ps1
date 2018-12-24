@@ -1,7 +1,7 @@
 <#
 .Synopsis
    Compiles the Advent Of Code 2018 instruction set ("ElfCode") 
-   to DOTNet CIL, then makes an .exe
+   to DOTNet CIL, then runs it (PS or PS Core), or saves an .exe (only on Windows PS 5.1)
 
    NB parameter for loading ElfCode from file would be great, but doesn't exist.
 
@@ -11,16 +11,20 @@
     
     1. Edit $registers line below -> how many registers, and their start values.
     2. Edit $ElfCodeInput below -> paste your code, or uncomment the Get-Content line and read it from a file.
-    3. Set $DEBUGPrintRegistersEveryNLoops = N if you want progress printed out every N instructions (slower).
+    3. Set $DEBUGPrintEveryNInstructions = N if you want progress printed out every N instructions (slower).
 
     Optionally set this, to see the verbose log messages during 
     $VerbosePreference = 'Continue'
 .EXAMPLE
     PS C:\test> .\ElfCode-to-exe.ps1
+    VERBOSE: Running the generated code
+    Before: 0, 0, 0, 0, 0, 0
+    Counter: 0      Instruction Pointer: 11
+    Registers: 3000000000; 3000000001; 0; 1; 0; 10
+.EXAMPLE
+    PS C:\test> .\ElfCode-to-exe.ps1 -CompileToExe
     Saved elf.exe
 
-.EXAMPLE
-   Another example of how to use this cmdlet
 #>
 
 using namespace System.Reflection.Emit
@@ -31,8 +35,11 @@ Param
     # Initial state of the registers
     [int64[]]$Registers = @(0,0,0,0,0,0),
 
-    # Param2 help description
-    [int64]$DEBUGPrintEveryNInstructions = 0 #500000000 # dump every N instructions; 0 = don't include debug code
+    # Print register state every N elfCode instructions (roughly).
+    [int64]$DEBUGPrintEveryNInstructions = 0, #500000000 # dump every N instructions; 0 = don't include debug code
+
+    # If this switch is provided, save to an .exe instead of simply running the code.
+    [switch]$CompileToExe = $false
 )
 
 Remove-Variable -Name result -ErrorAction SilentlyContinue
@@ -132,6 +139,7 @@ $parsedLines = [System.Collections.Generic.List[psobject]]::new()
 $inputLineCounter = 1
 foreach ($line in $ElfCodeInput)
 {
+    $line = $line.Trim()
     if ([string]::IsNullOrWhiteSpace($line))
     {
         continue
@@ -144,7 +152,7 @@ foreach ($line in $ElfCodeInput)
     {
         Write-Error -Message "Line $inputLineCounter, '$line' is trying to redefine #ip, that's not supported"
     }
-    elseif ($line -match '^(\w+) (\d+) (\d+) (\d+)$')
+    elseif ($line -match '^(\w+) (-?\d+) (-?\d+) (-?\d+)$')
     {
         $opcode = $matches[1]
         [int64[]]$ABC = $matches[2,3,4]
@@ -251,7 +259,7 @@ function Add-IL-DebugPrint {
     
     # $loopCounter % cycles
     $IL.Emit([OpCodes]::Ldloc, $loopCounterLocal)
-    $IL.Emit([OpCodes]::Ldc_I8, $DEBUGPrintRegistersEveryNLoops)
+    $IL.Emit([OpCodes]::Ldc_I8, $DEBUGPrintEveryNInstructions)
     $IL.Emit([OpCodes]::Rem)
         
     # if ($that -gt 0) { skip the printing }
@@ -271,12 +279,11 @@ function Add-IL-DebugPrint {
 ##
 
 
-##
-# Boilerplate start - prepare ElfCode machine
-#  1. Make a DynamicMethod and type it to take no params, return an int array.
-#  2. Inline opcodes to setup registers, avoids having to load them from a parameter.
-##
-
+# Setup the CIL generation, based on running it now or making an .exe
+#
+# You might think it could be the same, but .Net Core doesn't support DefineDynamicAssembly with the option to 'Save', afaict
+if ($CompileToExe)
+{
     $appDomain = [System.AppDomain]::CurrentDomain
     $assemblyName = [System.Reflection.AssemblyName]::new("AoC2018ElfCodeProcessor")
     $assemblyBuilder = $appDomain.DefineDynamicAssembly($assemblyName, [AssemblyBuilderAccess]::Save)
@@ -286,6 +293,19 @@ function Add-IL-DebugPrint {
     $assemblyBuilder.SetEntryPoint($methodBuilder)
 
     $IL = $methodBuilder.GetILGenerator()
+}
+else
+{
+    $methodInfo = new-object Reflection.Emit.DynamicMethod -ArgumentList @('ElfCode', $null, @())
+    $IL = $methodInfo.GetILGenerator()
+}
+
+##
+# Boilerplate start - prepare ElfCode machine
+#  1. Make a DynamicMethod and type it to take no params, return an int array.
+#  2. Inline opcodes to setup registers, avoids having to load them from a parameter.
+##
+
 
       
     # Make a local variable for each register and intialize them,
@@ -300,14 +320,14 @@ function Add-IL-DebugPrint {
 
 
    # Instruction Pointer local var sits after the register vars
-   $ipLocal = $IL.DeclareLocal([int32])
-   $IL.Emit([OpCodes]::Ldc_I4_0)
+   $ipLocal = $IL.DeclareLocal([int64])
+   $IL.Emit([OpCodes]::Ldc_I8, 0L)
    $IL.Emit([OpCodes]::Stloc, $ipLocal)
 
 
    # only used in debug code
    $loopCounterLocal = $IL.DeclareLocal([int64])
-   $IL.Emit([OpCodes]::Ldc_I4_0)
+   $IL.Emit([OpCodes]::Ldc_I8, 0L)
    $IL.Emit([OpCodes]::Stloc, $loopCounterLocal)
   
 ##
@@ -338,6 +358,7 @@ $IL.MarkLabel($beginLabel)
 
 # JumpTable - jump to the line for the instruction pointer
 $IL.Emit([OpCodes]::Ldloc, $ipLocal)
+$IL.Emit([OpCodes]::Conv_I4) #switch needs int32 here (?)
 $IL.Emit([OpCodes]::Switch, $lineJumpLabels)
 $defaultCaseLabel = $IL.DefineLabel()
 $IL.MarkLabel($defaultCaseLabel)
@@ -513,12 +534,12 @@ foreach ($line in $parsedLines)
     {
         $IL.Emit([OpCodes]::Ldloc, $iplocal)
     }
-    $IL.Emit([OpCodes]::Ldc_I4_1)
+    $IL.Emit([OpCodes]::Ldc_I8, 1L)
     $IL.Emit([OpCodes]::Add)
     $IL.Emit([OpCodes]::Stloc, $ipLocal)
 
     
-    if ($DEBUGPrintRegistersEveryNLoops -gt 0)
+    if ($DEBUGPrintEveryNInstructions -gt 0)
     {
         Add-IL-DebugPrint
     }
@@ -543,6 +564,18 @@ foreach ($line in $parsedLines)
 # Boilerplate end - end of CIL code generation.
 ##
 
-$ProcessorClass = $typeBuilder.CreateType()
-$assemblyBuilder.Save("elf.exe")
-Write-Verbose -Verbose -Message "Saved elf.exe"
+if ($CompileToExe)
+{
+    Write-Verbose -Verbose -Message "Saving to elf.exe"
+    $ProcessorClass = $typeBuilder.CreateType()
+    $assemblyBuilder.Save("elf.exe")
+}
+else
+{
+    Write-Verbose -Verbose -Message "Running the generated code"
+    # Convert DyanmicMethod -> Delegate, and call it.
+    $ElfCode = $methodInfo.CreateDelegate([System.Action])
+
+    write-host "Before: $($registers -join ', ')"
+    $ElfCode.Invoke()
+}
